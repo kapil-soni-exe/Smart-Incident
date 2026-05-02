@@ -41,12 +41,12 @@ const incidentSchema = new mongoose.Schema({
     default: "Unassigned"
   },
 
-  tags: [String],
-
   aiSuggestion: {
     type: String,
-    default: null,
+    default: ""
   },
+
+  tags: [String],
 
   lastOccurrence: {
     type: Date,
