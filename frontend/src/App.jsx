@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
+import { TelemetryProvider } from './context/TelemetryContext'
 
 // Auth pages (public)
 import LoginPage    from './pages/LoginPage'
@@ -9,6 +10,7 @@ import RegisterPage from './pages/RegisterPage'
 
 // App pages (authenticated — Layout handles the guard)
 import DashboardPage      from './pages/DashboardPage'
+import MetricsPage        from './pages/MetricsPage'
 import IssuesPage         from './pages/IssuesPage'
 import IssueDetailPage    from './pages/IssueDetailPage'
 import IncidentsPage      from './pages/IncidentsPage'
@@ -19,6 +21,7 @@ import OnboardingPage     from './pages/OnboardingPage'
 export default function App() {
   return (
     <AuthProvider>
+      <TelemetryProvider>
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
@@ -27,6 +30,7 @@ export default function App() {
 
           {/* Protected routes — Layout component enforces auth */}
           <Route path="/dashboard"         element={<DashboardPage />} />
+          <Route path="/metrics"           element={<MetricsPage />} />
           <Route path="/issues"            element={<IssuesPage />} />
           <Route path="/issues/:id"        element={<IssueDetailPage />} />
           <Route path="/incidents"         element={<IncidentsPage />} />
@@ -57,6 +61,7 @@ export default function App() {
           error:   { iconTheme: { primary: '#f55459', secondary: '#fff' } },
         }}
       />
+      </TelemetryProvider>
     </AuthProvider>
   )
 }

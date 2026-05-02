@@ -6,7 +6,7 @@ export const getIncidents = async (req, res) => {
     const { service, severity, status, page = 1, limit = 20, search } = req.query;
 
     // Build dynamic query from filters
-    const query = {};
+    const query = { projectId: req.user._id };
     if (service) query.service = service;
     if (severity) query.severity = severity;
     if (status) query.status = status;
@@ -85,20 +85,25 @@ export const updateIncidentStatus = async (req, res) => {
 // ─── GET /api/v1/incidents/stats ─────────────────────────────────────────────
 export const getIncidentStats = async (req, res) => {
   try {
+    const projectId = req.user._id;
+
     // Aggregate counts by status and severity in parallel
     const [statusCounts, severityCounts, recentTrend] = await Promise.all([
       // Count incidents grouped by status
       IncidentModel.aggregate([
+        { $match: { projectId } },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
       // Count incidents grouped by severity
       IncidentModel.aggregate([
+        { $match: { projectId } },
         { $group: { _id: "$severity", count: { $sum: 1 } } },
       ]),
       // Last 7 days — daily incident count
       IncidentModel.aggregate([
         {
           $match: {
+            projectId,
             createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
           },
         },

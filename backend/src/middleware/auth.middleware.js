@@ -39,3 +39,29 @@ export const optionalAuth = (req, res, next) => {
   }
   next();
 };
+import ProjectModel from "../model/project.model.js";
+
+/**
+ * validateApiKey — for SDK ingestion (x-api-key header)
+ * Finds the project associated with the key and attaches to request
+ */
+export const validateApiKey = async (req, res, next) => {
+  const apiKey = req.headers["x-api-key"];
+
+  if (!apiKey) {
+    return res.status(401).json({ success: false, error: "API Key required (x-api-key header)" });
+  }
+
+  try {
+    const project = await ProjectModel.findOne({ apiKey, status: "active" });
+    if (!project) {
+      return res.status(401).json({ success: false, error: "Invalid or inactive API Key" });
+    }
+
+    // Attach project info to request
+    req.project = project; 
+    next();
+  } catch (err) {
+    return res.status(500).json({ success: false, error: "Authentication service failure" });
+  }
+};

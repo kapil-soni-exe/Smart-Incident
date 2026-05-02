@@ -1,12 +1,13 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
-  LayoutDashboard, AlertTriangle, Siren,
+  LayoutDashboard, AlertTriangle, Siren, Activity,
   Settings, Rocket, LogOut, ShieldCheck,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/metrics',   label: 'Metrics',    icon: Activity },
   { to: '/incidents', label: 'Incidents',  icon: Siren },
   { to: '/issues',    label: 'Issues',     icon: AlertTriangle },
 ]

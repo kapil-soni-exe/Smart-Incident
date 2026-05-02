@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
 const incidentSchema = new mongoose.Schema({
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Project",
+    required: true,
+    index: true,
+  },
   title: {
     type: String,
     required: true,
@@ -39,11 +45,6 @@ const incidentSchema = new mongoose.Schema({
   assignedTo: {
     type: String,   // userId or display name
     default: "Unassigned",
-  },
-
-  aiSuggestion: {
-    type: String,
-    default: ""
   },
 
   tags: [String],

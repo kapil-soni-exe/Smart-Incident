@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import UserModel from "../model/user.model.js";
+import ProjectModel from "../model/project.model.js";
 import { config } from "../config/config.js";
 
 // Helper: create a signed JWT valid for 7 days
@@ -34,6 +35,15 @@ export const register = async (req, res) => {
     const apiKey = generateApiKey();
 
     const user = await UserModel.create({ name, email, password, apiKey });
+    
+    // 🚀 NEW: Create a default project for the user automatically
+    await ProjectModel.create({
+      name: "My First Project",
+      owner: user._id,
+      apiKey: apiKey,
+      platform: "web"
+    });
+
     const token = signToken(user);
 
     res.status(201).json({

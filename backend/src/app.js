@@ -22,14 +22,41 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ─── Prometheus Metrics Tracking ──────────────────────────────────────────────
+import { register, httpRequestDurationMicroseconds } from "./services/metrics.service.js";
+
+// Middleware to track request duration
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    httpRequestDurationMicroseconds
+      .labels(req.method, req.route ? req.route.path : req.path, res.statusCode)
+      .observe(duration);
+  });
+  next();
+});
+
+// Expose /metrics endpoint for Prometheus scraping
+app.get("/metrics", async (req, res) => {
+  try {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
+  } catch (ex) {
+    res.status(500).end(ex);
+  }
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 import errorRoutes from "./routes/error.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import incidentRoutes from "./routes/incident.routes.js";
+import systemRoutes from "./routes/system.routes.js";
 
 app.use("/api/v1/errors", errorRoutes);         // Error ingestion + listing
 app.use("/api/v1/auth", authRoutes);            // Register / Login / Me
 app.use("/api/v1/incidents", incidentRoutes);   // Incident management
+app.use("/api/v1/system", systemRoutes);        // System configuration
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", (req, res) =>

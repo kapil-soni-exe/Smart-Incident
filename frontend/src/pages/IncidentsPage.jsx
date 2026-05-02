@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { SeverityBadge, StatusBadge, Spinner, timeAgo } from '../components/ui'
 import api from '../lib/api'
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Activity, Filter, RefreshCw, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUSES   = ['', 'open', 'investigating', 'resolved', 'closed']
@@ -11,12 +11,19 @@ const SEVERITIES = ['', 'critical', 'high', 'medium', 'low']
 
 export default function IncidentsPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
   const [incidents, setIncidents] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [total,     setTotal]     = useState(0)
   const [page,      setPage]      = useState(1)
   const [search,    setSearch]    = useState('')
-  const [filters,   setFilters]   = useState({ status: '', severity: '' })
+  
+  // Read initial filters from URL params
+  const [filters,   setFilters]   = useState({ 
+    status: searchParams.get('status') || '', 
+    severity: searchParams.get('severity') || '' 
+  })
   const [updating,  setUpdating]  = useState(null)
 
   const fetchIncidents = useCallback(async () => {
@@ -52,94 +59,115 @@ export default function IncidentsPage() {
 
   return (
     <Layout title="Incidents">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* ── Toolbar ── */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Search */}
-          <div style={{ flex: 1, minWidth: 220, position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--tx-3)', pointerEvents: 'none' }} />
-            <input
-              id="incident-search"
-              className="form-input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Search incidents…"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-            />
-          </div>
+        {/* ── Premium Toolbar ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+            <div style={{ flex: 1, maxWidth: 360, position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--tx-3)', pointerEvents: 'none' }} />
+              <input
+                id="incident-search"
+                className="form-input"
+                style={{ paddingLeft: 36, background: 'var(--bg-surface2)', border: '1px solid var(--bd)' }}
+                placeholder="Search incident titles…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+              />
+            </div>
 
-          {/* Filters */}
-          {[['status', STATUSES], ['severity', SEVERITIES]].map(([key, opts]) => (
-            <select
-              key={key}
-              id={`inc-filter-${key}`}
-              className="form-select"
-              style={{ width: 148 }}
-              value={filters[key]}
-              onChange={e => { setFilters(f => ({ ...f, [key]: e.target.value })); setPage(1) }}
-            >
-              <option value="">All {key.charAt(0).toUpperCase() + key.slice(1)}s</option>
-              {opts.filter(Boolean).map(o => (
-                <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--bg-surface2)', padding: '4px', borderRadius: 'var(--radius)', border: '1px solid var(--bd)' }}>
+              <Filter size={14} style={{ marginLeft: 8, color: 'var(--tx-3)' }} />
+              {[['status', STATUSES], ['severity', SEVERITIES]].map(([key, opts]) => (
+                <select
+                  key={key}
+                  className="form-select"
+                  style={{ border: 'none', background: 'transparent', width: 140, paddingLeft: 8 }}
+                  value={filters[key]}
+                  onChange={e => { setFilters(f => ({ ...f, [key]: e.target.value })); setPage(1) }}
+                >
+                  <option value="">All {key.charAt(0).toUpperCase() + key.slice(1)}s</option>
+                  {opts.filter(Boolean).map(o => (
+                    <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+                  ))}
+                </select>
               ))}
-            </select>
-          ))}
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--tx-2)', fontWeight: 500 }}>
+              {total.toLocaleString()} incident{total !== 1 ? 's' : ''} found
+            </div>
+            <button className="btn btn-ghost" onClick={fetchIncidents} title="Refresh">
+              <RefreshCw size={14} className={loading ? "spin" : ""} />
+            </button>
+          </div>
         </div>
 
-        {/* ── Count ── */}
-        <div style={{ fontSize: 12, color: 'var(--tx-3)', fontWeight: 500 }}>
-          {total} incident{total !== 1 ? 's' : ''} found
-        </div>
-
-        {/* ── Table ── */}
-        {loading ? <Spinner /> : incidents.length === 0 ? (
-          <div className="empty-state">
+        {/* ── Premium Card Stack View ── */}
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
+        ) : incidents.length === 0 ? (
+          <div className="empty-state" style={{ padding: 60, background: 'var(--bg-surface2)', border: '1px dashed var(--bd)' }}>
             <div className="empty-state-icon">🎉</div>
-            <div className="empty-state-text">No incidents found</div>
-            <div style={{ fontSize: 12, color: 'var(--tx-3)', marginTop: 4 }}>
-              Your systems are running clean
+            <div className="empty-state-text" style={{ fontSize: 16 }}>Zero Incidents!</div>
+            <div style={{ fontSize: 13, color: 'var(--tx-3)', marginTop: 4 }}>
+              Your systems are running smoothly.
             </div>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Service</th>
-                  <th>Severity</th>
-                  <th>Status</th>
-                  <th>Errors</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {incidents.map(inc => (
-                  <tr
-                    key={inc._id}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/incidents/${inc._id}`)}
-                  >
-                    <td style={{ maxWidth: 300 }}>
-                      <div style={{
-                        fontWeight: 500,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        maxWidth: 280, color: 'var(--tx)',
-                      }}>
-                        {inc.title}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {incidents.map((inc) => {
+              const borderLeftColor = inc.severity === 'critical' ? 'var(--red)' : inc.severity === 'high' ? 'var(--orange)' : 'var(--brand)';
+              return (
+                <div 
+                  key={inc._id}
+                  onClick={() => navigate(`/incidents/${inc._id}`)}
+                  className="card"
+                  style={{
+                    cursor: 'pointer',
+                    padding: '20px 24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 16,
+                    borderLeft: `4px solid ${borderLeftColor}`,
+                    background: 'var(--bg-surface)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  }}
+                  onMouseEnter={e => { 
+                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+                  }}
+                  onMouseLeave={e => { 
+                    e.currentTarget.style.transform = 'none'; 
+                    e.currentTarget.style.boxShadow = 'var(--shadow)';
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 280 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                         <span style={{ fontSize: 12, color: 'var(--tx-3)', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", background: 'var(--bg-main)', padding: '2px 6px', borderRadius: 4 }}>
+                           INC-{inc._id.slice(-6).toUpperCase()}
+                         </span>
+                         <span style={{ color: 'var(--tx-3)', fontSize: 12 }}>•</span>
+                         <span style={{ fontSize: 12, color: 'var(--tx-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                           <Clock size={12}/> {timeAgo(inc.createdAt)}
+                         </span>
                       </div>
-                    </td>
-                    <td><span className="chip">{inc.service}</span></td>
-                    <td><SeverityBadge severity={inc.severity} /></td>
-                    <td><StatusBadge status={inc.status} /></td>
-                    <td style={{ fontWeight: 600, color: 'var(--tx)' }}>{inc.errorCount.toLocaleString()}</td>
-                    <td style={{ color: 'var(--tx-2)' }}>{timeAgo(inc.createdAt)}</td>
-                    <td onClick={e => e.stopPropagation()}>
+                      <h3 style={{ margin: 0, fontSize: 17, color: 'var(--tx)', fontWeight: 600, lineHeight: 1.4 }}>
+                        {inc.title}
+                      </h3>
+                    </div>
+
+                    <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
                       <select
                         className="form-select"
-                        style={{ width: 138, padding: '4px 8px', fontSize: 12 }}
+                        style={{ 
+                          width: 140, padding: '8px 12px', fontSize: 13, 
+                          background: 'var(--bg-main)', border: `1px solid ${inc.status === 'open' ? 'var(--yellow)' : 'var(--bd)'}`, 
+                          fontWeight: 500, borderRadius: 'var(--radius)'
+                        }}
                         value={inc.status}
                         disabled={updating === inc._id}
                         onChange={e => updateStatus(e, inc._id, e.target.value)}
@@ -148,11 +176,23 @@ export default function IncidentsPage() {
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                         ))}
                       </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <SeverityBadge severity={inc.severity} />
+                    <StatusBadge status={inc.status} />
+                    <span className="chip" style={{ background: 'var(--bg-main)', border: '1px solid var(--bd-light)' }}>
+                      {inc.service || 'unknown'}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--tx-2)', fontWeight: 600, fontSize: 13, marginLeft: 'auto', background: 'var(--bg-surface2)', padding: '4px 10px', borderRadius: 12 }}>
+                      <Activity size={14} color="var(--brand)" /> 
+                      {inc.errorCount.toLocaleString()} Events
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

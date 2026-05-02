@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { SeverityBadge, StatusBadge, Spinner, timeAgo } from '../components/ui'
 import api from '../lib/api'
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Activity, Filter, RefreshCw } from 'lucide-react'
 
 const SERVICES   = ['', 'payments', 'auth', 'api', 'frontend', 'backend']
 const SEVERITIES = ['', 'critical', 'high', 'medium', 'low']
@@ -11,12 +11,20 @@ const STATUSES   = ['', 'active', 'resolved', 'ignored']
 
 export default function IssuesPage() {
   const navigate  = useNavigate()
+  const [searchParams] = useSearchParams()
+  
   const [errors,  setErrors]  = useState([])
   const [loading, setLoading] = useState(true)
   const [total,   setTotal]   = useState(0)
   const [page,    setPage]    = useState(1)
   const [search,  setSearch]  = useState('')
-  const [filters, setFilters] = useState({ service: '', severity: '', status: '' })
+  
+  // Read initial filters from URL params
+  const [filters, setFilters] = useState({ 
+    service: searchParams.get('service') || '', 
+    severity: searchParams.get('severity') || '', 
+    status: searchParams.get('status') || '' 
+  })
 
   const fetchErrors = useCallback(async () => {
     setLoading(true)
@@ -41,89 +49,126 @@ export default function IssuesPage() {
 
   return (
     <Layout title="Issues">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* ── Toolbar ── */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220, position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--tx-3)', pointerEvents: 'none' }} />
-            <input
-              id="issues-search"
-              className="form-input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Search errors…"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-            />
-          </div>
+        {/* ── Premium Toolbar ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+            <div style={{ flex: 1, maxWidth: 360, position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--tx-3)', pointerEvents: 'none' }} />
+              <input
+                id="issues-search"
+                className="form-input"
+                style={{ paddingLeft: 36, background: 'var(--bg-surface2)', border: '1px solid var(--bd)' }}
+                placeholder="Search error messages or hashes…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+              />
+            </div>
 
-          {[['service', SERVICES], ['severity', SEVERITIES], ['status', STATUSES]].map(([key, opts]) => (
-            <select
-              key={key}
-              id={`filter-${key}`}
-              className="form-select"
-              style={{ width: 138 }}
-              value={filters[key]}
-              onChange={e => handleFilter(key, e.target.value)}
-            >
-              <option value="">All {key.charAt(0).toUpperCase() + key.slice(1)}s</option>
-              {opts.filter(Boolean).map(o => (
-                <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--bg-surface2)', padding: '4px', borderRadius: 'var(--radius)', border: '1px solid var(--bd)' }}>
+              <Filter size={14} style={{ marginLeft: 8, color: 'var(--tx-3)' }} />
+              {[['service', SERVICES], ['severity', SEVERITIES], ['status', STATUSES]].map(([key, opts]) => (
+                <select
+                  key={key}
+                  className="form-select"
+                  style={{ border: 'none', background: 'transparent', width: 130, paddingLeft: 8 }}
+                  value={filters[key]}
+                  onChange={e => handleFilter(key, e.target.value)}
+                >
+                  <option value="">All {key.charAt(0).toUpperCase() + key.slice(1)}s</option>
+                  {opts.filter(Boolean).map(o => (
+                    <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+                  ))}
+                </select>
               ))}
-            </select>
-          ))}
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--tx-2)', fontWeight: 500 }}>
+              {total.toLocaleString()} issue{total !== 1 ? 's' : ''} found
+            </div>
+            <button className="btn btn-ghost" onClick={fetchErrors} title="Refresh">
+              <RefreshCw size={14} className={loading ? "spin" : ""} />
+            </button>
+          </div>
         </div>
 
-        {/* ── Count ── */}
-        <div style={{ fontSize: 12, color: 'var(--tx-3)', fontWeight: 500 }}>
-          {total} issue{total !== 1 ? 's' : ''} found
-        </div>
-
-        {/* ── Table ── */}
-        {loading ? <Spinner /> : errors.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
-            <div className="empty-state-text">No issues match your filters</div>
-            <div style={{ fontSize: 12, color: 'var(--tx-3)', marginTop: 4 }}>Try adjusting your search or filters</div>
+        {/* ── Premium List View ── */}
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
+        ) : errors.length === 0 ? (
+          <div className="empty-state" style={{ padding: 60, background: 'var(--bg-surface2)', border: '1px dashed var(--bd)' }}>
+            <div className="empty-state-icon">✅</div>
+            <div className="empty-state-text" style={{ fontSize: 16 }}>Inbox Zero! No issues found.</div>
+            <div style={{ fontSize: 13, color: 'var(--tx-3)', marginTop: 4 }}>You have resolved all errors matching these filters.</div>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Issue</th>
-                  <th>Service</th>
-                  <th>Severity</th>
-                  <th>Status</th>
-                  <th>Events</th>
-                  <th>Last Seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {errors.map(err => (
-                  <tr key={err._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/issues/${err._id}`)}>
-                    <td style={{ maxWidth: 380 }}>
-                      <div style={{
-                        fontWeight: 500, color: 'var(--tx)',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360,
-                      }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--bd)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+            
+            {/* List Header */}
+            <div style={{ 
+              display: 'grid', gridTemplateColumns: '4fr 1fr 1fr 1fr 1fr', gap: 16, 
+              padding: '12px 20px', borderBottom: '1px solid var(--bd)', 
+              background: 'var(--bg-surface2)', fontSize: 11, textTransform: 'uppercase', 
+              color: 'var(--tx-3)', fontWeight: 600, letterSpacing: '0.5px'
+            }}>
+              <div>Error Event</div>
+              <div>Service</div>
+              <div>Status</div>
+              <div>Volume</div>
+              <div style={{ textAlign: 'right' }}>Last Seen</div>
+            </div>
+            
+            {/* List Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {errors.map((err, i) => (
+                <div 
+                  key={err._id}
+                  onClick={() => navigate(`/issues/${err._id}`)}
+                  style={{ 
+                    display: 'grid', gridTemplateColumns: '4fr 1fr 1fr 1fr 1fr', gap: 16, alignItems: 'center',
+                    padding: '16px 20px', borderBottom: i === errors.length - 1 ? 'none' : '1px solid var(--bd-light)',
+                    cursor: 'pointer', transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {/* Title & Metadata */}
+                  <div style={{ minWidth: 0, paddingRight: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <SeverityBadge severity={err.severity} />
+                      <div style={{ fontWeight: 600, color: 'var(--tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 14 }}>
                         {err.message}
                       </div>
-                      {err.operation && (
-                        <div style={{ fontSize: 11, color: 'var(--tx-3)', marginTop: 3, fontFamily: "'JetBrains Mono', monospace" }}>
-                          {err.operation}
-                        </div>
-                      )}
-                    </td>
-                    <td><span className="chip">{err.service}</span></td>
-                    <td><SeverityBadge severity={err.severity} /></td>
-                    <td><StatusBadge status={err.status} /></td>
-                    <td style={{ fontWeight: 600, color: 'var(--tx)' }}>{err.count.toLocaleString()}</td>
-                    <td style={{ color: 'var(--tx-2)' }}>{timeAgo(err.lastSeen)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    {err.operation && (
+                      <div style={{ fontSize: 12, color: 'var(--tx-3)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ color: 'var(--tx-2)', fontWeight: 500 }}>{err.operation.split(' ')[0]}</span> {err.operation.split(' ').slice(1).join(' ')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Service */}
+                  <div><span className="chip" style={{ background: 'var(--bg-main)' }}>{err.service || 'unknown'}</span></div>
+                  
+                  {/* Status */}
+                  <div><StatusBadge status={err.status} /></div>
+
+                  {/* Events Count */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--tx-2)', fontWeight: 600, fontSize: 13 }}>
+                    <Activity size={14} color="var(--brand)" /> 
+                    {err.count.toLocaleString()}
+                  </div>
+
+                  {/* Last Seen */}
+                  <div style={{ textAlign: 'right', color: 'var(--tx-3)', fontSize: 12, fontWeight: 500 }}>
+                    {timeAgo(err.lastSeen)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

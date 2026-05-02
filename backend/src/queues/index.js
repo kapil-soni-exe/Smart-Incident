@@ -4,6 +4,11 @@ import { sendSlackAlert } from "../services/slack.service.js";
 import { getAISuggestion } from "../services/openai.service.js";
 import IncidentModel from "../model/incident.models.js";
 import ErrorModel from "../model/erros.models.js";
+import { 
+  queueJobsWaitingGauge, 
+  queueJobsCompletedCounter, 
+  queueJobsFailedCounter 
+} from "../services/metrics.service.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INCIDENT QUEUE — triggered when error count ≥ threshold
@@ -52,13 +57,16 @@ export const incidentWorker = new Worker(
   { connection: redisConnection, concurrency: 5 } // Process up to 5 jobs simultaneously
 );
 
-// Log worker lifecycle events for observability
-incidentWorker.on("completed", (job) =>
-  console.log(`✅ [incidentQueue] Job ${job.id} completed`)
-);
-incidentWorker.on("failed", (job, err) =>
-  console.error(`❌ [incidentQueue] Job ${job.id} failed:`, err.message)
-);
+// Log worker lifecycle events and track metrics
+incidentWorker.on("completed", (job) => {
+  console.log(`✅ [incidentQueue] Job ${job.id} completed`);
+  queueJobsCompletedCounter.labels("incidentQueue").inc();
+});
+
+incidentWorker.on("failed", (job, err) => {
+  console.error(`❌ [incidentQueue] Job ${job.id} failed:`, err.message);
+  queueJobsFailedCounter.labels("incidentQueue").inc();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EMAIL QUEUE — reserved for future email notification feature
@@ -85,11 +93,31 @@ export const emailWorker = new Worker(
   { connection: redisConnection }
 );
 
-emailWorker.on("completed", (job) =>
-  console.log(`✅ [emailQueue] Email job ${job.id} done`)
-);
-emailWorker.on("failed", (job, err) =>
-  console.error(`❌ [emailQueue] Email job ${job.id} failed:`, err.message)
-);
+emailWorker.on("completed", (job) => {
+  console.log(`✅ [emailQueue] Email job ${job.id} done`);
+  queueJobsCompletedCounter.labels("emailQueue").inc();
+});
+
+emailWorker.on("failed", (job, err) => {
+  console.error(`❌ [emailQueue] Email job ${job.id} failed:`, err.message);
+  queueJobsFailedCounter.labels("emailQueue").inc();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUEUE MONITORING POLLING — Update waiting counts every 15s
+// ─────────────────────────────────────────────────────────────────────────────
+
+setInterval(async () => {
+  try {
+    const [incidentWaiting, emailWaiting] = await Promise.all([
+      incidentQueue.getWaitingCount(),
+      emailQueue.getWaitingCount(),
+    ]);
+    queueJobsWaitingGauge.labels("incidentQueue").set(incidentWaiting);
+    queueJobsWaitingGauge.labels("emailQueue").set(emailWaiting);
+  } catch (err) {
+    console.error("Failed to update queue metrics:", err.message);
+  }
+}, 15000);
 
 console.log("🚀 BullMQ queues initialised: incidentQueue, emailQueue");
