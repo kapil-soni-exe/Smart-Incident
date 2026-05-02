@@ -3,42 +3,42 @@ import mongoose from "mongoose";
 const incidentSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true
+    required: true,
   },
 
   description: String,
 
   service: {
     type: String,
-    required: true
+    required: true,
   },
 
   severity: {
     type: String,
     enum: ["low", "medium", "high", "critical"],
-    default: "medium"
+    default: "medium",
   },
 
   status: {
     type: String,
     enum: ["open", "investigating", "resolved", "closed"],
-    default: "open"
+    default: "open",
   },
 
   fingerprint: {
     type: String,
     required: true,
-    index: true
+    index: true,
   },
 
   errorCount: {
     type: Number,
-    default: 0
+    default: 0,
   },
 
   assignedTo: {
-    type: String, // userId or name
-    default: "Unassigned"
+    type: String,   // userId or display name
+    default: "Unassigned",
   },
 
   aiSuggestion: {
@@ -48,19 +48,27 @@ const incidentSchema = new mongoose.Schema({
 
   tags: [String],
 
+  // AI-generated root cause + fix suggestion (populated by incidentQueue worker)
+  aiSuggestion: {
+    type: String,
+    default: null,
+  },
+
   lastOccurrence: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
 
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-// Index for fast lookup of open incidents by fingerprint
+// Compound index for fast lookup of open incidents by fingerprint
 incidentSchema.index({ fingerprint: 1, status: 1 });
+// Sort index for dashboard queries
+incidentSchema.index({ createdAt: -1 });
 
 const IncidentModel = mongoose.model("Incident", incidentSchema);
 export default IncidentModel;

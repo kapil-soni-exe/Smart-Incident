@@ -1,89 +1,53 @@
 import OpenAI from "openai";
 import { config } from "../config/config.js";
 
-/**
- * OpenAI client instance — initialized lazily to avoid errors
- * when API key is not configured.
- */
-let openaiClient = null;
-
-const getClient = () => {
-    if (!openaiClient && config.OPENAI_API_KEY) {
-        openaiClient = new OpenAI({
-            apiKey: config.OPENAI_API_KEY,
-        });
-    }
-    return openaiClient;
-};
+// Initialise OpenAI client with API key from env
+const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
 /**
- * AI-Doctor: Analyzes a stack trace and error message using OpenAI
- * and returns a concise fix suggestion.
+ * getAISuggestion — sends an error's stack trace + message to GPT-4o-mini
+ * and returns a concise, actionable fix suggestion.
+ * Result is stored in ErrorModel.aiSuggestion field.
  *
- * @param {string} stackTrace - The error stack trace
- * @param {string} errorMessage - The error message
- * @param {string} service - The affected service name
- * @returns {Promise<string|null>} - AI suggestion text, or null if unavailable
+ * @param {string} message   — human-readable error message
+ * @param {string} stack     — full stack trace string
+ * @param {string} service   — service/microservice name
+ * @returns {string}         — AI-generated suggestion text
  */
-export const getAISuggestion = async (stackTrace, errorMessage, service) => {
-    // Gracefully skip if OpenAI API key is not configured
-    if (!config.OPENAI_API_KEY) {
-        console.warn("⚠️  OpenAI API key not configured — skipping AI suggestion");
-        return null;
-    }
+export const getAISuggestion = async (message, stack, service) => {
+  // Skip if API key not configured
+  if (!config.OPENAI_API_KEY) {
+    console.warn("⚠️  OpenAI API key not configured — skipping AI suggestion");
+    return "AI suggestion unavailable — API key not configured.";
+  }
 
-    const client = getClient();
-    if (!client) {
-        console.warn("⚠️  OpenAI client could not be initialized");
-        return null;
-    }
+  // System prompt shapes the AI's response style
+  const systemPrompt = `You are a senior software engineer specialising in debugging production incidents.
+Given an error message and stack trace, provide:
+1. A short root cause analysis (1-2 sentences)
+2. A step-by-step fix (numbered list, max 5 steps)
+3. Prevention advice (1 sentence)
+Be concise, technical, and actionable. Format the response in plain text, no markdown headers.`;
 
-    try {
-        const response = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are a senior backend engineer specializing in incident response. 
-Analyze the error and provide a concise, actionable fix suggestion. 
-Keep your response under 300 words. Format it as:
-
-**Root Cause:** (1-2 sentences)
-**Fix Suggestion:** (step-by-step, max 5 steps)
-**Prevention:** (1-2 sentences on how to prevent this in the future)`,
-                },
-                {
-                    role: "user",
-                    content: `Service: ${service}
-Error Message: ${errorMessage}
+  // User prompt includes all available context
+  const userPrompt = `Service: ${service}
+Error Message: ${message}
 Stack Trace:
-${stackTrace || "No stack trace available"}
+${stack || "No stack trace available"}`;
 
-What caused this error and how should we fix it?`,
-                },
-            ],
-            max_tokens: 500,
-            temperature: 0.3, // Lower temperature for more deterministic, precise responses
-        });
+  // Call OpenAI Chat Completions API
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",            // Cost-effective model suitable for analysis
+    max_tokens: 400,                  // Keep responses concise
+    temperature: 0.3,                 // Lower temperature → more deterministic output
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
 
-        const suggestion = response.choices[0]?.message?.content;
-
-        if (suggestion) {
-            console.log(`🤖 AI suggestion generated for service: ${service}`);
-            return suggestion;
-        }
-
-        return null;
-    } catch (error) {
-        // Handle specific OpenAI errors
-        if (error.status === 429) {
-            console.error("❌ OpenAI rate limit exceeded — skipping AI suggestion");
-        } else if (error.status === 401) {
-            console.error("❌ OpenAI API key is invalid — check your OPENAI_API_KEY");
-        } else {
-            console.error("❌ OpenAI API error:", error.message);
-        }
-
-        return null;
-    }
+  // Extract the text from the first choice
+  const suggestion = completion.choices[0]?.message?.content?.trim();
+  console.log(`🤖 AI suggestion generated for service: ${service}`);
+  return suggestion || "No suggestion returned by AI.";
 };

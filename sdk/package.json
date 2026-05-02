@@ -1,0 +1,13 @@
+{
+  "name": "opus",
+  "version": "1.0.0",
+  "description": "OpusGuard SDK. Capture and send errors from any JavaScript app.",
+  "main": "opus.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test-opus.js"
+  },
+  "keywords": ["error-tracking", "monitoring", "opus", "incident"],
+  "author": "",
+  "license": "MIT"
+}

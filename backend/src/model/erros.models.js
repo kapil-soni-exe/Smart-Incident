@@ -79,13 +79,13 @@ errorSchema.index({ fingerprint: 1, status: 1, lastSeen: -1 });
  * The resulting hash is stored in the fingerprint field
  * This ensures that similar errors are grouped together for easier tracking and resolution
  */
-errorSchema.pre("save", function (next) {
-  const base = this.message + this.service + this.operation;
-  this.fingerprint = crypto
+errorSchema.pre("save",function(next){
+    const base = this.message + this.service + this.operation;
+    this.fingerprint = crypto
     .createHash("md5")
     .update(base)
     .digest("hex");
-  next();
+    next();
 })
 errorSchema.index({ service: 1 });
 errorSchema.index({ severity: 1 });

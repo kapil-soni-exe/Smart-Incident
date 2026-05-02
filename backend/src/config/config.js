@@ -1,8 +1,12 @@
-import dotenv from "dotenv"
-dotenv.config()
+import dotenv from "dotenv";
+dotenv.config();
 
-if(!process.env.MONGO_URI){
-    throw new Error("MONGO_URI is not defined")
+// ─── Validate critical environment variables at startup ───────────────────────
+const required = ["MONGO_URI", "JWT_SECRET"];
+for (const key of required) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required env variable: ${key}`);
+  }
 }
 
 export const config = {
