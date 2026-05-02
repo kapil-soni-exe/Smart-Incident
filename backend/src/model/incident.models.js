@@ -43,6 +43,11 @@ const incidentSchema = new mongoose.Schema({
 
   tags: [String],
 
+  aiSuggestion: {
+    type: String,
+    default: null,
+  },
+
   lastOccurrence: {
     type: Date,
     default: Date.now

@@ -1,6 +1,7 @@
 import ErrorModel from "../model/erros.models.js";
 import IncidentModel from "../model/incident.models.js";
 import crypto from "crypto";
+import { incidentQueue } from "../queues/queues.js";
 
 export const logError = async (req, res) => {
     try {
@@ -79,7 +80,7 @@ export const logError = async (req, res) => {
             });
 
             if (!existingIncident) {
-                await IncidentModel.create({
+                const newIncident = await IncidentModel.create({
                     title: `Frequent Error: ${incident.message}`,
                     description: `Error occurred ${incident.count} times in a short window.`,
                     service: incident.service,
@@ -90,6 +91,19 @@ export const logError = async (req, res) => {
                 });
                 isIncidentCreated = true;
                 console.log(`🚨 Incident Created for fingerprint: ${incident.fingerprint}`);
+
+                // 🔥 Dispatch background job for Slack + AI processing
+                await incidentQueue.add("process-incident", {
+                    incidentId: newIncident._id.toString(),
+                    title: newIncident.title,
+                    service: newIncident.service,
+                    severity: newIncident.severity,
+                    fingerprint: newIncident.fingerprint,
+                    errorCount: newIncident.errorCount,
+                    stack: incident.stack,
+                    message: incident.message,
+                });
+                console.log(`📤 Job dispatched to incidentQueue for: ${newIncident.title}`);
             } else {
                 // Update existing incident with latest count and timestamp
                 existingIncident.errorCount = incident.count;
