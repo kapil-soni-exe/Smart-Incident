@@ -10,10 +10,10 @@ for (const key of required) {
 }
 
 export const config = {
-    MONGO_URI: process.env.MONGO_URI,
-    JWT_SECRET: process.env.JWT_SECRET,
-    REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
-    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || "",
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
-    FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
+  MONGO_URI: process.env.MONGO_URI,
+  JWT_SECRET: process.env.JWT_SECRET,
+  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
+  SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || "",
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
 }
