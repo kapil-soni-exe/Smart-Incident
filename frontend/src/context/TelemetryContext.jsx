@@ -54,7 +54,7 @@ export function TelemetryProvider({ children }) {
           })
         )
       })
-      .catch(() => {/* silently ignore – graph just stays flat */})
+      .catch(() => {/* silently ignore – graph just stays flat */ })
       .finally(() => setTrendReady(true))
 
     // ── 2. WebSocket – one persistent connection ─────────────────────────────
